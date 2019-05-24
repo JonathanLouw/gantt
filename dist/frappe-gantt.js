@@ -24,6 +24,20 @@ const month_names = {
         'November',
         'December'
     ],
+    es: [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre'
+    ],
     ru: [
         'Январь',
         'Февраль',
@@ -37,6 +51,34 @@ const month_names = {
         'Октябрь',
         'Ноябрь',
         'Декабрь'
+    ],
+    ptBr: [
+        'Janeiro',
+        'Fevereiro',
+        'Março',
+        'Abril',
+        'Maio',
+        'Junho',
+        'Julho',
+        'Agosto',
+        'Setembro',
+        'Outubro',
+        'Novembro',
+        'Dezembro'
+    ],
+    fr: [
+        'Janvier',
+        'Février',
+        'Mars',
+        'Avril',
+        'Mai',
+        'Juin',
+        'Juillet',
+        'Août',
+        'Septembre',
+        'Octobre',
+        'Novembre',
+        'Décembre'
     ]
 };
 
@@ -585,10 +627,11 @@ class Bar {
     show_popup() {
         if (this.gantt.bar_being_dragged) return;
 
-        const start_date = date_utils.format(this.task._start, 'MMM D');
+        const start_date = date_utils.format(this.task._start, 'MMM D', this.gantt.options.language);
         const end_date = date_utils.format(
             date_utils.add(this.task._end, -1, 'second'),
-            'MMM D'
+            'MMM D',
+            this.gantt.options.language
         );
         const subtitle = start_date + ' - ' + end_date;
 
@@ -596,7 +639,7 @@ class Bar {
             target_element: this.$bar,
             title: this.task.name,
             subtitle: subtitle,
-            task: this.task
+            task: this.task,
         });
     }
 
@@ -981,7 +1024,7 @@ class Gantt {
         } else {
             throw new TypeError(
                 'Frappé Gantt only supports usage of a string CSS selector,' +
-                    " HTML DOM element or SVG DOM element for the 'element' parameter"
+                " HTML DOM element or SVG DOM element for the 'element' parameter"
             );
         }
 
@@ -1016,6 +1059,7 @@ class Gantt {
             header_height: 50,
             column_width: 30,
             step: 24,
+            highlight_weekends: false,
             view_modes: [
                 'Quarter Day',
                 'Half Day',
@@ -1253,7 +1297,7 @@ class Gantt {
             this.options.header_height +
             this.options.padding +
             (this.options.bar_height + this.options.padding) *
-                this.tasks.length;
+            this.tasks.length;
 
         createSVG('rect', {
             x: 0,
@@ -1361,27 +1405,42 @@ class Gantt {
     make_grid_highlights() {
         // highlight today's date
         if (this.view_is('Day')) {
-            const x =
-                date_utils.diff(date_utils.today(), this.gantt_start, 'hour') /
-                this.options.step *
-                this.options.column_width;
-            const y = 0;
-
             const width = this.options.column_width;
             const height =
                 (this.options.bar_height + this.options.padding) *
-                    this.tasks.length +
+                this.tasks.length +
                 this.options.header_height +
                 this.options.padding / 2;
 
-            createSVG('rect', {
-                x,
-                y,
-                width,
-                height,
-                class: 'today-highlight',
-                append_to: this.layers.grid
-            });
+            let x = 0;
+
+            for (let date of this.dates) {
+
+                let y = this.options.header_height + this.options.padding / 2;
+
+                let isToday = date.toString() == date_utils.today();
+                let isWeekend = (date.getDay() == 0 || date.getDay() == 6);
+                let className;
+
+                if (isToday) {
+                    className = 'today-highlight';
+                    y = (this.options.header_height + this.options.padding) / 2; // This is so the day highlight doesn't extend into the months header
+                } else if (isWeekend && this.options.highlight_weekends) {
+                    className = 'weekend-highlight';
+                }
+
+                if (isToday || isWeekend) {
+                    createSVG('rect', {
+                        x,
+                        y,
+                        width,
+                        height,
+                        class: className,
+                        append_to: this.layers.grid
+                    });
+                }
+                x += this.options.column_width;
+            }
         }
     }
 
@@ -1456,8 +1515,8 @@ class Gantt {
             'Half Day_upper':
                 date.getDate() !== last_date.getDate()
                     ? date.getMonth() !== last_date.getMonth()
-                      ? date_utils.format(date, 'D MMM', this.options.language)
-                      : date_utils.format(date, 'D', this.options.language)
+                        ? date_utils.format(date, 'D MMM', this.options.language)
+                        : date_utils.format(date, 'D', this.options.language)
                     : '',
             Day_upper:
                 date.getMonth() !== last_date.getMonth()
@@ -1570,8 +1629,8 @@ class Gantt {
 
         const scroll_pos =
             hours_before_first_task /
-                this.options.step *
-                this.options.column_width -
+            this.options.step *
+            this.options.column_width -
             this.options.column_width;
 
         parent_element.scrollLeft = scroll_pos;
